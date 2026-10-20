@@ -42,3 +42,75 @@ section.title p {
   height: auto;
 }
 
+
+/* ---- design tokens ---- */
+:root {
+  --ok: #2e9e5b;
+  --warn: #e6a100;
+  --bad: #d64545;
+  --fetch: #6aa9e9;
+  --decode: #9b8be0;
+  --exec: #4cc2a0;
+  --wb: #f0a35e;
+  --muted: #8a8a8a;
+}
+
+.reveal table { font-size: 0.7em; }
+.reveal table.small { font-size: 0.5em; }
+.reveal table tr.ok td { background: rgba(46, 158, 91, 0.18); }
+.reveal table tr.warn td { background: rgba(230, 161, 0, 0.25); }
+.reveal table tr.bad td { background: rgba(214, 69, 69, 0.30); font-weight: bold; }
+
+.reveal .callout {
+  border-left: 8px solid var(--warn);
+  background: rgba(230, 161, 0, 0.12);
+  padding: 0.4em 0.8em;
+  margin: 0.6em auto;
+  text-align: left;
+  font-size: 0.8em;
+}
+.reveal .callout.bad { border-color: var(--bad); background: rgba(214, 69, 69, 0.12); }
+.reveal .callout.ok { border-color: var(--ok); background: rgba(46, 158, 91, 0.12); }
+
+.reveal .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5em; text-align: left; }
+.reveal .two-col > div { padding: 0.5em 0.8em; border-radius: 8px; background: rgba(0, 0, 0, 0.05); }
+.reveal .two-col h4 { margin-top: 0; }
+
+/* ---- pipeline / timeline grid ---- */
+.reveal .tl { display: grid; gap: 4px; font-size: 0.7em; align-items: center; text-align: center; margin: 0 auto; }
+.reveal .tl .h { color: var(--muted); font-size: 0.8em; }
+.reveal .tl .r { text-align: right; padding-right: 0.6em; font-family: monospace; white-space: nowrap; }
+.reveal .tl .c { border-radius: 4px; padding: 0.35em 0; color: #fff; font-weight: bold; }
+.reveal .tl .F { background: var(--fetch); }
+.reveal .tl .D { background: var(--decode); }
+.reveal .tl .E { background: var(--exec); }
+.reveal .tl .W { background: var(--wb); }
+.reveal .tl .S { background: var(--bad); }   /* stall / bubble */
+.reveal .tl .L { background: var(--warn); } /* long latency */
+.reveal .tl .X { background: transparent; color: var(--muted); font-weight: normal; }
+
+.reveal .legend span { display: inline-block; padding: 0 0.7em; margin: 0 0.2em; border-radius: 4px; color: #fff; font-size: 0.6em; }
+
+/* ---- cache line state badges ---- */
+.reveal .st { display: inline-block; min-width: 1.6em; padding: 0.05em 0.4em; border-radius: 4px; color: #fff; font-weight: bold; font-family: monospace; }
+.reveal .st.M { background: var(--bad); }
+.reveal .st.E { background: var(--exec); }
+.reveal .st.S { background: var(--fetch); }
+.reveal .st.I { background: var(--muted); }
+
+/* ---- architecture boxes ---- */
+.reveal .boxes { display: flex; justify-content: center; gap: 1.2em; font-size: 0.6em; }
+.reveal .box { border: 3px solid #555; border-radius: 8px; padding: 0.4em 0.8em; background: rgba(255, 255, 255, 0.6); min-width: 8em; }
+.reveal .box.fast { border-color: var(--ok); }
+.reveal .box.slow { border-color: var(--bad); }
+.reveal .box small { display: block; color: #555; }
+
+/* ---- result bars ---- */
+.reveal .bar { display: inline-block; height: 0.8em; background: var(--ok); vertical-align: middle; }
+.reveal .bar.warn { background: var(--bad); min-width: 4px; }
+.reveal .bar.mid { background: var(--fetch); }
+
+/* ---- happens-before lanes ---- */
+.reveal .lane { display: grid; grid-template-columns: 8em 1fr; gap: 0.5em; font-size: 0.6em; align-items: center; margin: 0.4em 0; }
+.reveal .lane code { background: rgba(0,0,0,0.06); padding: 0.1em 0.4em; }
+.reveal .lane .hb { color: var(--bad); font-weight: bold; }

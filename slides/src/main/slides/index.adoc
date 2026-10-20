@@ -58,32 +58,21 @@ is to keep trying
 
 === free lunch is over
 
-in 2005 Herb Sutter wrote famous article +
+in 2005 Herb Sutter wrote a famous article +
 https://www.cs.utexas.edu/~lin/cs380p/Free_Lunch.pdf[The Free Lunch Is Over: A Fundamental Turn Toward Concurrency in Software]
 
 [quote]
-The major processor manufacturers and architectures, from Intel and AMD to Sparc and PowerPC, have run out of room with most of their
-traditional approaches to boosting CPU performance. Instead of driving clock speeds and straight-line instruction throughput ever higher, they
-are instead turning en masse to hyperthreading and multicore architectures. Both of these features are already available on chips today; in
-particular, multicore is available on current PowerPC and Sparc IV processors, and is coming in 2005 from Intel and AMD. Indeed, the big
-theme of the 2004 In-Stat/MDR Fall Processor Forum was multicore devices, as many companies showed new or updated multicore
-processors. Looking back, it’s not much of a stretch to call 2004 the year of multicore
+The major processor manufacturers [...] have run out of room with most of their traditional approaches to boosting CPU performance. Instead of driving clock speeds [...] higher, they are instead turning en masse to hyperthreading and multicore architectures.
 
 === !
 
 [quote]
-Starting today, the performance lunch isn’t free any more. Sure, there will continue to be generally applicable performance gains that everyone
-can pick up, thanks mainly to cache size improvements. But if you want your application to benefit from the continued exponential throughput
-advances in new processors, it will need to be a well-written concurrent (usually multithreaded) application. And that’s easier said than done,
-because not all problems are inherently parallelizable and because concurrent programming is hard
+If you want your application to benefit from the continued exponential throughput advances in new processors, it will need to be a well-written concurrent application. And that’s easier said than done [...] because concurrent programming is hard.
 
 === !
 
 [quote]
-The vast majority of programmers today don’t grok concurrency, just as the vast
-majority of programmers 15 years ago didn’t yet grok objects. But the concurrent
-programming model is learnable, particularly if we stick to message- and lock-based programming, and once grokked it isn’t that much harder
-than OO and hopefully can become just as natural. Just be ready and allow for the investment in training and time, for you and for your team
+The vast majority of programmers today don’t grok concurrency, just as the vast majority of programmers 15 years ago didn’t yet grok objects. [...] the concurrent programming model is learnable, particularly if we stick to message- and lock-based programming.
 
 === why should I care?
 
@@ -99,6 +88,14 @@ and last but not least...
 image::https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExcTU4dmlta2NydTg4OHo5cmJpaWlrZDRuNWpidXBrYWczODV4MWlrNyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/cMALqIjmb7ygw/giphy.gif[background]
 
 
+=== roadmap
+
+[%step]
+. *hardware* — pipelines, caches, why reads and writes get reordered
+. *memory models* — what Java promises in spite of that
+. *coordination* — locks, atomics, immutability, messages
+. *testing* — how to find bugs you cannot see
+
 == limitations are in our brain
 
 code we write is sequential stream of instructions
@@ -113,18 +110,18 @@ hardware is getting more complex, and it seems we don't talk to each other
 
 [source,java]
 ----
-class A{
+class A {
   int x;
   int y;
 
-  void write(){
-    x=1;
-    y=1;
+  void writer() {        // thread 1
+    x = 1;
+    y = 1;
   }
 
-  void read(Result result){
-    result.r1=y;
-    result.r2=x;
+  void reader(Result result) {   // thread 2
+    result.r1 = y;
+    result.r2 = x;
   }
 }
 ----
@@ -136,25 +133,25 @@ image::https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExcjVjOGNwdXZwMnlpMm15OTl
 
 === AMD (Ryzen 7, 8 cores)
 
-[%autowidth]
-|===
-|RESULT   |     SAMPLES   |  FREQ   |    EXPECT  |DESCRIPTION
-|    x=0, y=0 |   145,507,140 |  10.97% |  Acceptable|  Neither write visible
-|    x=0, y=1 |     1,704,026 |   0.13% | Interesting|  Only y visible - reordering!
-|    x=1, y=0 |       922,848 |   0.07% |  Acceptable|  Only y visible
-|    x=1, y=1 | 1,178,699,650 |  88.84% |  Acceptable|  Both writes visible
-|===
+++++
+<table><thead><tr><th>(r1, r2)</th><th>samples</th><th>freq</th><th></th><th>meaning</th></tr></thead><tbody>
+<tr class="ok"><td><code>0, 0</code></td><td style="text-align:right">145,507,140</td><td style="text-align:right">10.97%</td><td style="width:360px"><span class="bar" style="width:43px"></span></td><td>neither write visible</td></tr>
+<tr class="bad"><td><code>1, 0</code></td><td style="text-align:right">1,704,026</td><td style="text-align:right">0.13%</td><td style="width:360px"><span class="bar warn" style="width:4px"></span></td><td>only y visible — reordering!</td></tr>
+<tr class="ok"><td><code>0, 1</code></td><td style="text-align:right">922,848</td><td style="text-align:right">0.07%</td><td style="width:360px"><span class="bar" style="width:4px"></span></td><td>only x visible</td></tr>
+<tr class="ok"><td><code>1, 1</code></td><td style="text-align:right">1,178,699,650</td><td style="text-align:right">88.84%</td><td style="width:360px"><span class="bar" style="width:355px"></span></td><td>both writes visible</td></tr>
+</tbody></table>
+++++
 
 === ARM (Graviton 3, 8 cores)
 
-[%autowidth]
-|===
-|RESULT    |    SAMPLES   |  FREQ   |    EXPECT  |DESCRIPTION
-|    x=0, y=0  |1,265,188,995 |  68.62% |  Acceptable|  Neither write visible
-|    x=0, y=1  |    3,862,131 |   0.21% | Interesting|  Only y visible - reordering!
-|    x=1, y=0  |      298,764 |   0.02% |  Acceptable|  Only x visible
-|    x=1, y=1  |  574,296,574 |  31.15% |  Acceptable|  Both writes visible
-|===
+++++
+<table><thead><tr><th>(r1, r2)</th><th>samples</th><th>freq</th><th></th><th>meaning</th></tr></thead><tbody>
+<tr class="ok"><td><code>0, 0</code></td><td style="text-align:right">1,265,188,995</td><td style="text-align:right">68.62%</td><td style="width:360px"><span class="bar" style="width:274px"></span></td><td>neither write visible</td></tr>
+<tr class="bad"><td><code>1, 0</code></td><td style="text-align:right">3,862,131</td><td style="text-align:right">0.21%</td><td style="width:360px"><span class="bar warn" style="width:4px"></span></td><td>only y visible — reordering!</td></tr>
+<tr class="ok"><td><code>0, 1</code></td><td style="text-align:right">298,764</td><td style="text-align:right">0.02%</td><td style="width:360px"><span class="bar" style="width:4px"></span></td><td>only x visible</td></tr>
+<tr class="ok"><td><code>1, 1</code></td><td style="text-align:right">574,296,574</td><td style="text-align:right">31.15%</td><td style="width:360px"><span class="bar" style="width:124px"></span></td><td>both writes visible</td></tr>
+</tbody></table>
+++++
 
 === But why?
 
@@ -168,79 +165,190 @@ image::https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExa3J0dHBjeHg5eGU2ZDEwa2N
 
 === The pipeline
 
-Every instruction travels through stages:
+every instruction travels through stages — *different instructions occupy different stages at the same time*
 
-[%autowidth]
-|===
-| Stage | What happens
+++++
+<p class="legend"><span style="background:var(--fetch)">Fetch</span><span style="background:var(--decode)">Decode</span><span style="background:var(--exec)">Execute</span><span style="background:var(--wb)">Write-back / Retire</span></p>
+++++
 
-| Fetch | Load instruction from memory (or cache)
-| Decode | Figure out what the instruction means
-| Execute | Run it on the ALU / load-store unit
-| Write-back | Store the result
-|===
+=== without pipelining
 
-A modern CPU has *many* of these stages running *in parallel* — this is called *pipelining*
+++++
+<div class="tl" style="grid-template-columns:11em repeat(16,1fr)">
+<div class="h"></div>
+<div class="h">1</div>
+<div class="h">2</div>
+<div class="h">3</div>
+<div class="h">4</div>
+<div class="h">5</div>
+<div class="h">6</div>
+<div class="h">7</div>
+<div class="h">8</div>
+<div class="h">9</div>
+<div class="h">10</div>
+<div class="h">11</div>
+<div class="h">12</div>
+<div class="h">13</div>
+<div class="h">14</div>
+<div class="h">15</div>
+<div class="h">16</div>
+<div class="r fragment" data-fragment-index="0" style="grid-row:2;grid-column:1">I1</div>
+<div class="c F fragment" data-fragment-index="0" style="grid-row:2;grid-column:2/span 1">F</div>
+<div class="c D fragment" data-fragment-index="0" style="grid-row:2;grid-column:3/span 1">D</div>
+<div class="c E fragment" data-fragment-index="0" style="grid-row:2;grid-column:4/span 1">E</div>
+<div class="c W fragment" data-fragment-index="0" style="grid-row:2;grid-column:5/span 1">W</div>
+<div class="r fragment" data-fragment-index="1" style="grid-row:3;grid-column:1">I2</div>
+<div class="c F fragment" data-fragment-index="1" style="grid-row:3;grid-column:6/span 1">F</div>
+<div class="c D fragment" data-fragment-index="1" style="grid-row:3;grid-column:7/span 1">D</div>
+<div class="c E fragment" data-fragment-index="1" style="grid-row:3;grid-column:8/span 1">E</div>
+<div class="c W fragment" data-fragment-index="1" style="grid-row:3;grid-column:9/span 1">W</div>
+<div class="r fragment" data-fragment-index="2" style="grid-row:4;grid-column:1">I3</div>
+<div class="c F fragment" data-fragment-index="2" style="grid-row:4;grid-column:10/span 1">F</div>
+<div class="c D fragment" data-fragment-index="2" style="grid-row:4;grid-column:11/span 1">D</div>
+<div class="c E fragment" data-fragment-index="2" style="grid-row:4;grid-column:12/span 1">E</div>
+<div class="c W fragment" data-fragment-index="2" style="grid-row:4;grid-column:13/span 1">W</div>
+<div class="r fragment" data-fragment-index="3" style="grid-row:5;grid-column:1">I4</div>
+<div class="c F fragment" data-fragment-index="3" style="grid-row:5;grid-column:14/span 1">F</div>
+<div class="c D fragment" data-fragment-index="3" style="grid-row:5;grid-column:15/span 1">D</div>
+<div class="c E fragment" data-fragment-index="3" style="grid-row:5;grid-column:16/span 1">E</div>
+<div class="c W fragment" data-fragment-index="3" style="grid-row:5;grid-column:17/span 1">W</div>
+</div>
+++++
 
-=== The problem with waiting
+4 instructions = 16 cycles
 
-Some instructions take longer than others
+=== with pipelining
 
-[source,java]
-----
-x = 1;            // store — fast
-y = arr[i];       // load from RAM — ~200 cycles
-z = 2;            // fast, but independent of y
-----
+++++
+<div class="tl" style="grid-template-columns:11em repeat(7,1fr)">
+<div class="h"></div>
+<div class="h">1</div>
+<div class="h">2</div>
+<div class="h">3</div>
+<div class="h">4</div>
+<div class="h">5</div>
+<div class="h">6</div>
+<div class="h">7</div>
+<div class="r fragment" data-fragment-index="0" style="grid-row:2;grid-column:1">I1</div>
+<div class="c F fragment" data-fragment-index="0" style="grid-row:2;grid-column:2/span 1">F</div>
+<div class="c D fragment" data-fragment-index="0" style="grid-row:2;grid-column:3/span 1">D</div>
+<div class="c E fragment" data-fragment-index="0" style="grid-row:2;grid-column:4/span 1">E</div>
+<div class="c W fragment" data-fragment-index="0" style="grid-row:2;grid-column:5/span 1">W</div>
+<div class="r fragment" data-fragment-index="1" style="grid-row:3;grid-column:1">I2</div>
+<div class="c F fragment" data-fragment-index="1" style="grid-row:3;grid-column:3/span 1">F</div>
+<div class="c D fragment" data-fragment-index="1" style="grid-row:3;grid-column:4/span 1">D</div>
+<div class="c E fragment" data-fragment-index="1" style="grid-row:3;grid-column:5/span 1">E</div>
+<div class="c W fragment" data-fragment-index="1" style="grid-row:3;grid-column:6/span 1">W</div>
+<div class="r fragment" data-fragment-index="2" style="grid-row:4;grid-column:1">I3</div>
+<div class="c F fragment" data-fragment-index="2" style="grid-row:4;grid-column:4/span 1">F</div>
+<div class="c D fragment" data-fragment-index="2" style="grid-row:4;grid-column:5/span 1">D</div>
+<div class="c E fragment" data-fragment-index="2" style="grid-row:4;grid-column:6/span 1">E</div>
+<div class="c W fragment" data-fragment-index="2" style="grid-row:4;grid-column:7/span 1">W</div>
+<div class="r fragment" data-fragment-index="3" style="grid-row:5;grid-column:1">I4</div>
+<div class="c F fragment" data-fragment-index="3" style="grid-row:5;grid-column:5/span 1">F</div>
+<div class="c D fragment" data-fragment-index="3" style="grid-row:5;grid-column:6/span 1">D</div>
+<div class="c E fragment" data-fragment-index="3" style="grid-row:5;grid-column:7/span 1">E</div>
+<div class="c W fragment" data-fragment-index="3" style="grid-row:5;grid-column:8/span 1">W</div>
+</div>
+++++
 
-Sitting idle wastes the pipeline — so the CPU *reorders* independent instructions to keep every stage busy
-
-=== Out-of-order execution
-
-The CPU maintains a *reorder buffer*: a queue of in-flight instructions
-
-* Instructions are *issued* in program order
-* Instructions are *executed* as soon as their inputs are ready — regardless of order
-* Results are *retired* (committed) in program order — so *single-threaded* code sees no difference
-
-=== Out-of-order execution — how it works
-
-three instructions, one very slow:
-
-[source,java]
-----
-x = 1;            // store — fast
-y = arr[i];       // load from RAM — ~200 cycles
-z = 2;            // fast, but independent of y
-----
-
-=== !
-
-[%autowidth]
-|===
-| Clock | Fetch | Decode | Execute | Commit (in order)
-
-| 1     | `x = 1`      |              |                            |
-| 2     | `y = arr[i]` | `x = 1`      |                            |
-| 3     | `z = 2`      | `y = arr[i]` | `x = 1` ✓                  |
-| 4     |              | `z = 2`      | `y = arr[i]` ⏳            | `x = 1`
-| 5     |              |              | `z = 2` ✓ *out of order!*  | waiting for `y`...
-| 6–203 |              |              | `y = arr[i]` ⏳ ...        | waiting for `y`...
-| 204   |              |              | `y = arr[i]` ✓             | `y`, then `z`
-|===
-
+4 instructions = 7 cycles — one instruction finishes *every* cycle
 
 === pipeline hazards
 
-a *pipeline hazard* is any condition that prevents the next instruction from executing in the next clock cycle
+a *hazard* is anything that stops the next instruction from entering the next stage
 
-* *structural* — resource conflict: two instructions need the same hardware at the same time
-* *data* — dependency: an instruction needs a result not yet produced by an earlier instruction
-* *control* — branching: the CPU doesn't know which instruction comes next
+* *structural* — two instructions need the same hardware at the same time
+* *data* — an instruction needs a result that is not produced yet
+* *control* — a branch: the CPU doesn't know which instruction comes next
 
-we solve it by a *pipeline bubble* +
-it is an empty slot propagating through the pipeline +
-— wasted cycles where no useful work is done
+++++
+<div class="tl" style="grid-template-columns:16em repeat(7,1fr)">
+<div class="h"></div>
+<div class="h">1</div>
+<div class="h">2</div>
+<div class="h">3</div>
+<div class="h">4</div>
+<div class="h">5</div>
+<div class="h">6</div>
+<div class="h">7</div>
+<div class="r" style="grid-row:2;grid-column:1">I1 <code>r1 = load a</code></div>
+<div class="c F" style="grid-row:2;grid-column:2/span 1">F</div>
+<div class="c D" style="grid-row:2;grid-column:3/span 1">D</div>
+<div class="c E" style="grid-row:2;grid-column:4/span 1">E</div>
+<div class="c W" style="grid-row:2;grid-column:5/span 1">W</div>
+<div class="r" style="grid-row:3;grid-column:1">I2 <code>r2 = r1 + 1</code></div>
+<div class="c F" style="grid-row:3;grid-column:3/span 1">F</div>
+<div class="c D" style="grid-row:3;grid-column:4/span 1">D</div>
+<div class="c S" style="grid-row:3;grid-column:5/span 1">⏳</div>
+<div class="c E" style="grid-row:3;grid-column:6/span 1">E</div>
+<div class="c W" style="grid-row:3;grid-column:7/span 1">W</div>
+<div class="r" style="grid-row:4;grid-column:1">I3 <code>r3 = 7</code></div>
+<div class="c F" style="grid-row:4;grid-column:4/span 1">F</div>
+<div class="c S" style="grid-row:4;grid-column:5/span 1">⏳</div>
+<div class="c D" style="grid-row:4;grid-column:6/span 1">D</div>
+<div class="c E" style="grid-row:4;grid-column:7/span 1">E</div>
+<div class="c W" style="grid-row:4;grid-column:8/span 1">W</div>
+</div>
+++++
+
+the price is a *bubble* (⏳): wasted cycles propagating through the pipeline +
+CPUs fight back with forwarding, branch prediction and *out-of-order execution*
+
+=== The problem with waiting
+
+Some instructions take far longer than others
+
+[source,java]
+----
+x = 1;            // store — fast
+y = arr[i];       // load from RAM — ~200 cycles
+z = 2;            // fast, and independent of y
+----
+
+idle stages waste the pipeline — so the CPU runs *independent* instructions while it waits
+
+=== Out-of-order execution
+
+* instructions are *issued* in program order
+* *executed* as soon as their inputs are ready — whatever the order
+* *retired* in program order, via the *reorder buffer* — so single-threaded code sees no difference
+
+++++
+<div class="tl" style="grid-template-columns:10em repeat(10,1fr)">
+<div class="h"></div>
+<div class="h">1</div>
+<div class="h">2</div>
+<div class="h">3</div>
+<div class="h">4</div>
+<div class="h">5</div>
+<div class="h">⋯</div>
+<div class="h">⋯</div>
+<div class="h">⋯</div>
+<div class="h">203</div>
+<div class="h">204</div>
+<div class="r fragment" data-fragment-index="0" style="grid-row:2;grid-column:1"><code>x = 1</code></div>
+<div class="c F fragment" data-fragment-index="0" style="grid-row:2;grid-column:2/span 1">F</div>
+<div class="c D fragment" data-fragment-index="0" style="grid-row:2;grid-column:3/span 1">D</div>
+<div class="c E fragment" data-fragment-index="0" style="grid-row:2;grid-column:4/span 1">E</div>
+<div class="c W fragment" data-fragment-index="0" style="grid-row:2;grid-column:5/span 1">retire</div>
+<div class="r fragment" data-fragment-index="1" style="grid-row:3;grid-column:1"><code>y = arr[i]</code></div>
+<div class="c F fragment" data-fragment-index="1" style="grid-row:3;grid-column:3/span 1">F</div>
+<div class="c D fragment" data-fragment-index="1" style="grid-row:3;grid-column:4/span 1">D</div>
+<div class="c E fragment" data-fragment-index="1" style="grid-row:3;grid-column:5/span 1">E</div>
+<div class="c L fragment" data-fragment-index="1" style="grid-row:3;grid-column:6/span 4">waiting for RAM ~200 cycles ⋯</div>
+<div class="c W fragment" data-fragment-index="1" style="grid-row:3;grid-column:10/span 1">retire</div>
+<div class="r fragment" data-fragment-index="2" style="grid-row:4;grid-column:1"><code>z = 2</code></div>
+<div class="c F fragment" data-fragment-index="2" style="grid-row:4;grid-column:4/span 1">F</div>
+<div class="c D fragment" data-fragment-index="2" style="grid-row:4;grid-column:5/span 1">D</div>
+<div class="c E fragment" data-fragment-index="2" style="grid-row:4;grid-column:6/span 1">E done!</div>
+<div class="c X fragment" data-fragment-index="2" style="grid-row:4;grid-column:7/span 3"><i>result parked in reorder buffer</i></div>
+<div class="c X fragment" data-fragment-index="2" style="grid-row:4;grid-column:10/span 1"></div>
+<div class="c W fragment" data-fragment-index="2" style="grid-row:4;grid-column:11/span 1">retire</div>
+</div>
+++++
+
+`z` executes in cycle 5, before `y` — but retires after it
 
 === consistency
 
@@ -254,14 +362,17 @@ based on possible load/store reordering, branch prediction
 
 === x86 vs ARM
 
-[%autowidth]
-|===
-|RESULT       | FREQ (x86_64) |  FREQ (ARM)   |     EXPECT  |DESCRIPTION
-|    x=0, y=0 |  10.97%       |  68.62%       |   Acceptable|  Neither write visible
-|    x=0, y=1 |   0.13%       |   0.21%       |  Interesting|  Only y visible - reordering!
-|    x=1, y=0 |   0.07%       |   0.02%       |   Acceptable|  Only y visible
-|    x=1, y=1 |  88.84%       |  31.15%       |   Acceptable|  Both writes visible
-|===
+++++
+<table><thead><tr><th>(r1, r2)</th><th>x86_64</th><th>ARM</th><th>meaning</th></tr></thead><tbody>
+<tr class="ok"><td><code>0, 0</code></td><td>10.97%</td><td>68.62%</td><td>neither write visible</td></tr>
+<tr class="bad"><td><code>1, 0</code></td><td>0.13%</td><td>0.21%</td><td>only y visible — reordering!</td></tr>
+<tr class="ok"><td><code>0, 1</code></td><td>0.07%</td><td>0.02%</td><td>only x visible</td></tr>
+<tr class="ok"><td><code>1, 1</code></td><td>88.84%</td><td>31.15%</td><td>both writes visible</td></tr>
+</tbody></table>
+++++
+
+[.callout]
+x86 (TSO) hardware does not reorder store→store or load→load — so on x86 the rare `(1, 0)` comes from the *JIT compiler*, on ARM the hardware does it too
 
 === portability
 
@@ -275,6 +386,7 @@ worry not, there is a solution to this problem
 
 [mermaid]
 ....
+%%{init: {'themeVariables': {'fontSize': '22px'}}}%%
 flowchart TB
     subgraph CPU0["CPU 0"]
         direction TB
@@ -298,47 +410,16 @@ flowchart TB
     C0L2 --> L3
     C1L2 --> L3
     L3 --> RAM
+
+    classDef fast fill:#c8f0d8,stroke:#2e9e5b
+    classDef mid fill:#fff1c2,stroke:#e6a100
+    classDef slow fill:#f8cccc,stroke:#d64545
+    class C0R,C1R,C0L1,C1L1 fast
+    class C0L2,C1L2,L3 mid
+    class RAM slow
 ....
 
-=== !
-
-[mermaid,width=800]
-....
-%%{init: {'theme': 'default', 'themeVariables': {'fontSize': '32px'}, 'sequence': {'actorMargin': 120, 'messageMargin': 60}}}%%
-sequenceDiagram
-    participant CPU0 as CPU 0
-    participant L1_0 as L1 (CPU 0)
-    participant L3 as L3 shared
-    participant L1_1 as L1 (CPU 1)
-    participant CPU1 as CPU 1
-
-    rect rgb(253, 214, 0)
-        Note over L3: x = 0
-    end
-....
-
-=== !
-
-[mermaid,width=800]
-....
-%%{init: {'theme': 'default', 'themeVariables': {'fontSize': '24px'}, 'sequence': {'actorMargin': 120, 'messageMargin': 60}}}%%
-sequenceDiagram
-    participant CPU0 as CPU 0
-    participant L1_0 as L1 (CPU 0)
-    participant L3 as L3 shared
-    participant L1_1 as L1 (CPU 1)
-    participant CPU1 as CPU 1
-
-    Note over L3: x = 0
-
-    rect rgb(253, 214, 0)
-        CPU0->>L1_0: read x
-        L1_0->>L3: cache miss — load x = 0
-        Note over L1_0: x = 0
-    end
-....
-
-=== !
+=== two cores, one variable
 
 [mermaid,width=800]
 ....
@@ -385,65 +466,6 @@ sequenceDiagram
     L1_1->>L3: cache miss — load x = 0
     Note over L1_1: x = 0
 
-    rect rgb(253, 214, 0)
-        CPU0->>L1_0: x = x + 1
-        Note over L1_0: x = 1 (dirty)
-    end
-....
-
-=== !
-
-[mermaid,width=800]
-....
-%%{init: {'theme': 'default', 'themeVariables': {'fontSize': '24px'}, 'sequence': {'actorMargin': 120, 'messageMargin': 60}}}%%
-sequenceDiagram
-    participant CPU0 as CPU 0
-    participant L1_0 as L1 (CPU 0)
-    participant L3 as L3 shared
-    participant L1_1 as L1 (CPU 1)
-    participant CPU1 as CPU 1
-
-    Note over L3: x = 0
-
-    CPU0->>L1_0: read x
-    L1_0->>L3: cache miss — load x = 0
-    Note over L1_0: x = 0
-
-    CPU1->>L1_1: read x
-    L1_1->>L3: cache miss — load x = 0
-    Note over L1_1: x = 0
-
-    CPU0->>L1_0: x = x + 1
-    Note over L1_0: x = 1 (dirty)
-
-    rect rgb(253, 214, 0)
-        CPU1->>L1_1: x = x + 1
-        Note over L1_1: x = 1 (dirty)
-    end
-....
-
-=== !
-
-[mermaid,width=800]
-....
-%%{init: {'theme': 'default', 'themeVariables': {'fontSize': '24px'}, 'sequence': {'actorMargin': 120, 'messageMargin': 60}}}%%
-sequenceDiagram
-    participant CPU0 as CPU 0
-    participant L1_0 as L1 (CPU 0)
-    participant L3 as L3 shared
-    participant L1_1 as L1 (CPU 1)
-    participant CPU1 as CPU 1
-
-    Note over L3: x = 0
-
-    CPU0->>L1_0: read x
-    L1_0->>L3: cache miss — load x = 0
-    Note over L1_0: x = 0
-
-    CPU1->>L1_1: read x
-    L1_1->>L3: cache miss — load x = 0
-    Note over L1_1: x = 0
-
     CPU0->>L1_0: x = x + 1
     Note over L1_0: x = 1 (dirty)
 
@@ -456,6 +478,10 @@ sequenceDiagram
         Note over L3: x = 1 💥 expected x = 2
     end
 ....
+
+[.callout.bad]
+without coherence both cores keep a stale private copy — this is the problem MESI solves +
+(note: even *with* coherence `x = x + 1` is not atomic — that needs CAS or a lock)
 
 === cache coherence
 
@@ -505,24 +531,73 @@ when it sees a transaction that affects a **cache line** it holds, it reacts:
 
 no central coordinator — coherence *emerges* from each cache reacting to bus events
 
+=== MESI in action
+
+++++
+<table class="small"><thead><tr><th>#</th><th>event</th><th>CPU 0</th><th>CPU 1</th><th>on the bus</th></tr></thead><tbody>
+<tr><td>1</td><td>CPU 0 reads <code>x</code></td><td><span class="st E">E</span></td><td><span class="st I">I</span></td><td>read from memory</td></tr>
+<tr><td>2</td><td>CPU 1 reads <code>x</code></td><td><span class="st S">S</span></td><td><span class="st S">S</span></td><td>CPU 0 snoops, shares the line</td></tr>
+<tr><td>3</td><td>CPU 0 writes <code>x = 1</code></td><td><span class="st M">M</span></td><td><span class="st I">I</span></td><td>invalidate — CPU 1 drops its copy</td></tr>
+<tr><td>4</td><td>CPU 1 reads <code>x</code></td><td><span class="st S">S</span></td><td><span class="st S">S</span></td><td>CPU 0 writes back, supplies x = 1</td></tr>
+<tr><td>5</td><td>CPU 1 writes <code>x = 2</code></td><td><span class="st I">I</span></td><td><span class="st M">M</span></td><td>invalidate — CPU 0 drops its copy</td></tr>
+</tbody></table>
+++++
+
+*nobody ever reads a stale copy* — but every hand-over costs bus traffic: contended lines are slow
+
 === MESI state diagram
 
 image::Simplified-MESI-state-diagram-with-transition-states.png[]
+
+=== coherence vs consistency
+
+++++
+<div class="two-col">
+<div><h4>coherence</h4>
+<p>one address</p>
+<p>all cores agree on the value of <code>x</code></p>
+<p><i>solved by MESI</i></p></div>
+<div><h4>consistency</h4>
+<p>many addresses</p>
+<p>in what <b>order</b> do cores see writes to <code>x</code> and <code>y</code>?</p>
+<p><i>defined by memory model</i></p></div>
+</div>
+++++
+
+why reordering happens even on coherent hardware: the *store buffer*
+
+++++
+<div class="boxes">
+<div class="box">Core<small>x = 1; y = 1</small></div>&rarr;
+<div class="box slow">store buffer<small>writes wait here, may drain out of order (ARM)</small></div>&rarr;
+<div class="box fast">L1 cache<small>coherent via MESI</small></div>
+</div>
+++++
+
 
 [role="highlight_section_title"]
 == let's fix it
 
 image::https://media.tenor.com/uIFVTVbJYD8AAAAd/pat-a-mat-pat.gif[background]
 
-== hardware
+== taming the hardware
 
-memory fences and memory models
+=== memory fences
 
-* memory fence (barrier): a CPU/compiler instruction enforcing ordering constraints on memory operations
-* two layers: compiler barrier (prevents reordering in generated code) + CPU barrier (prevents reordering in the store buffer / reorder buffer)
-* four types: LoadLoad, LoadStore, StoreStore, StoreLoad — each prevents one reordering pair
-* x86 is TSO (Total Store Order): only StoreLoad reordering possible; barriers often implicit
-* ARM is weakly ordered: nearly all reorderings allowed; barriers must be explicit
+a *fence* (barrier) forbids reordering across it — in the compiler *and* in the CPU
+
+[%autowidth]
+|===
+| reordering | x86 (TSO) | ARM (weak)
+
+| LoadLoad   | ✗ never   | ✓ can happen
+| LoadStore  | ✗ never   | ✓ can happen
+| StoreStore | ✗ never   | ✓ can happen
+| StoreLoad  | ✓ can happen | ✓ can happen
+|===
+
+x86: fences mostly implicit, only StoreLoad needs one +
+ARM: nothing is ordered unless you say so
 
 === memory models
 
@@ -553,31 +628,75 @@ if thread A performs a synchronizing action and thread B observes it, +
 whether a hardware fence is emitted depends on the architecture — +
 the model is hardware-independent
 
-=== testing our expectations
+=== fixing it with volatile
 
-adding a synchronization action causes the compiler and CPU to insert the appropriate barriers
+adding a synchronization action makes the compiler and CPU insert the appropriate barriers
 
 [source,java]
 ----
-class A{
+class A {
   int x;
   volatile int y;
 
-  void write(){
-    x=1;
-    y=1;
+  void writer() {
+    x = 1;
+    y = 1;           // volatile write
   }
 
-  void read(Result result){
-    result.y=y;
-    result.x=x;
+  void reader(Result result) {
+    result.r1 = y;   // volatile read
+    result.r2 = x;
   }
 }
 ----
 
-* write to synchronization variable: StoreStore barrier before + StoreLoad barrier after
-* read from synchronization variable: LoadLoad + LoadStore barrier after
-* `x=1` is committed to the cache hierarchy before `y=1` is made visible → `x=0, y=1` outcome is now *impossible*
+* volatile write: StoreStore barrier before + StoreLoad barrier after
+* volatile read: LoadLoad + LoadStore barrier after
+* `x=1` is committed before `y=1` becomes visible → outcome `(r1, r2) = (1, 0)` is now *impossible*
+
+=== happens-before
+
+++++
+<div class="lane"><b>Thread 1</b><span><code>x = 1</code> &rarr; <code>y = 1</code> <i>(volatile write)</i></span></div>
+<div class="lane"><b></b><span class="hb">&darr; happens-before: if reader sees y = 1 ...</span></div>
+<div class="lane"><b>Thread 2</b><span><code>r1 = y</code> <i>(volatile read, sees 1)</i> &rarr; <code>r2 = x</code> <b>must see 1</b></span></div>
+++++
+
+everything Thread 1 wrote *before* the volatile write is visible to Thread 2 *after* the volatile read
+
+=== what it means for your Java code
+
+[%autowidth.small]
+|===
+| you write | you get
+
+| `volatile` field | visibility + ordering — but `i++` is still not atomic
+| `synchronized` | mutual exclusion + visibility (release → acquire)
+| `final` fields | safe publication, as long as `this` does not escape the constructor
+| `AtomicInteger`, `VarHandle` | atomic read-modify-write (CAS) without a lock
+| `Thread.start()`, `join()`, `ExecutorService`, `ConcurrentHashMap` | happens-before edges built in
+|===
+
+=== classic trap: double-checked locking
+
+[source,java]
+----
+class Holder {
+  private static Config instance;           // not volatile!
+
+  static Config get() {
+    if (instance == null) {
+      synchronized (Holder.class) {
+        if (instance == null) instance = new Config();  // may publish a half-built object
+      }
+    }
+    return instance;
+  }
+}
+----
+
+[.callout.bad]
+fix: make `instance` *volatile* — or use the holder-class idiom / an enum
 
 === synchronizing actions all the things
 
@@ -597,12 +716,20 @@ choose one
 
 === SC-DRF
 
-there is a middle ground, an agreement in community
+there is a middle ground, an agreement between hardware, compilers and developers
 
-“data-race-free sequential-consistency”
+*“data-race-free programs behave as if sequentially consistent”*
 
-[quote]
-Instead of guaranteeing sequential consistency, as we mentioned earlier, today’s processors guarantee a property called “data-race-free sequential-consistency”, or DRF-SC (sometimes also written SC-DRF). A system guaranteeing DRF-SC must define specific instructions called synchronizing instructions, which provide a way to coordinate different processors (equivalently, threads). Programs use those instructions to create a “happens before” relationship between code running on one processor and code running on another. 
+[source,java]
+----
+int counter;                 // plain field
+
+counter++;                   // thread A
+System.out.println(counter); // thread B — data race: no happens-before, anything goes
+----
+
+[quote, Russ Cox, Hardware Memory Models]
+A system guaranteeing DRF-SC must define specific instructions called synchronizing instructions [...] Programs use those instructions to create a “happens before” relationship between code running on one processor and code running on another.
 
 === the catch
 
@@ -619,15 +746,42 @@ who said serializing access to memory is bad?
 
 only one thread executes the critical section at a time
 
-=== challenges
+=== what can go wrong with locks
 
-* progress guarantees
-** *deadlock*: threads wait for each other's lock — no thread ever makes progress
-** *livelock*: threads keep reacting to each other — activity without progress
-** *starvation*: a thread is perpetually denied access while others keep taking priority
-** *lock-free*: at least one thread always makes progress
-** *wait-free*: every thread makes progress in a bounded number of steps — strongest guarantee, hardest to implement
-* *latency*: caused by contention on locks, can be a killer for systems performance
+* *deadlock*: threads wait for each other's lock — no thread ever makes progress
+* *livelock*: threads keep reacting to each other — activity without progress
+* *starvation*: a thread is perpetually denied access while others keep taking priority
+* *latency*: contention on a lock is a killer for tail latency
+
+=== progress guarantees
+
+[%autowidth]
+|===
+| guarantee | meaning
+
+| *blocking*  | a thread holding a lock can stall everybody (preempted, GC pause, page fault...)
+| *lock-free* | at least one thread always makes progress
+| *wait-free* | every thread makes progress in a bounded number of steps — strongest guarantee, hardest to implement
+|===
+
+=== compare-and-swap
+
+[source,java]
+----
+AtomicInteger counter = new AtomicInteger();
+
+int increment() {
+  int cur;
+  do {
+    cur = counter.get();
+  } while (!counter.compareAndSet(cur, cur + 1));  // somebody else won? retry
+  return cur + 1;
+}
+----
+
+CAS is *one CPU instruction* (`lock cmpxchg` on x86), built on top of cache coherence
+
+no lock — but under contention the cache line still bounces between cores
 
 === immutability changes everything
 
@@ -645,7 +799,7 @@ image::https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExemo2YjdoOTRvc25iZmUyazN
 
 Tony Hoare, 1978 — _Communicating Sequential Processes_
 
-[quote]
+[quote, Go proverb — the slogan, not Hoare's words]
 Do not communicate by sharing memory; instead, share memory by communicating.
 
 * concurrent *processes* run in isolation — no shared state
@@ -745,16 +899,16 @@ Carl Hewitt, 1973 — _A Universal Modular ACTOR Formalism for Artificial Intell
 | full actor runtime for JVM; supports clustering and persistence
 
 | *Java*
-| Akka Java API, Virtual Actors (Microsoft Orleans port)
-| less idiomatic but fully supported
+| Pekko typed Java API, Vert.x verticles (actor-like)
+| fully supported, less idiomatic than Scala
 
 | *C# / .NET*
 | Microsoft Orleans (Virtual Actors)
 | actors are "grains" — automatically activated/deactivated by runtime
 
 | *Rust*
-| `Actix`, `Riker`
-| `Actix` also powers the popular Actix-Web HTTP framework
+| `Actix`
+| most Rust services prefer async/await + channels
 
 |===
 
@@ -786,7 +940,7 @@ Carl Hewitt, 1973 — _A Universal Modular ACTOR Formalism for Artificial Intell
 
 * your brain can fool you
 * you misunderstood things
-* CPU,operating systems and runtime can have weird quirks
+* CPU, operating systems and runtime can have weird quirks
 * frameworks and libraries can have errors (WAT!)
 
 === testing concurrent code
@@ -825,6 +979,25 @@ NOTICE: +
 *jcstress* (for Java): `@JCStressTest`, `@Actor`, `@Arbiter` — +
 observes all outcome distributions and flags anything that violates the spec
 
+=== jcstress: our litmus test, for real
+
+[source,java]
+----
+@JCStressTest
+@Outcome(id = {"0, 0", "0, 1", "1, 1"}, expect = ACCEPTABLE)
+@Outcome(id = "1, 0", expect = FORBIDDEN, desc = "y visible, x not — reordering!")
+@State
+public class VolatileFlag {
+  int x;
+  volatile int y;
+
+  @Actor void writer()            { x = 1; y = 1; }
+  @Actor void reader(II_Result r) { r.r1 = y; r.r2 = x; }
+}
+----
+
+this is how the result tables at the beginning were produced — remove `volatile` and `1, 0` appears
+
 === controlled interleaving
 
 *take control of the scheduler* — explicitly explore thread interleavings
@@ -834,7 +1007,7 @@ https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/asplos277-pc
 shadow locking wraps concurrency primitives without touching JDK / library internals +
 deterministic replay: reproduce the exact failing interleaving every time
 
-* *✓* finds 70% more bugs than JPF, 77% more than jcstress chaos mode
+* *✓* finds more bugs than JPF and jcstress chaos mode (numbers from the Fray paper — benchmark-dependent)
 * *✓* no source changes — `@ConcurrencyTest` with JUnit 5 extension
 * *✓* deterministic replay — debug the exact failing schedule
 * *✗* instrumentation overhead — slower than plain test runs
@@ -855,6 +1028,14 @@ Matt Godbolt
 Herb Sutter
 
 Fedor Pikus
+
+=== takeaways
+
+* the CPU *and* the JIT reorder your code — single-threaded results stay the same, multi-threaded ones don't
+* *coherence* keeps one address in sync; the *memory model* says what you see across addresses
+* no data races → think sequentially; create *happens-before* with `volatile`, `synchronized`, atomics, `final`
+* prefer immutability and message passing, keep shared mutable state small
+* don't trust your intuition — test with jcstress / Fray
 
 [role="highlight_section_title"]
 == thank you
