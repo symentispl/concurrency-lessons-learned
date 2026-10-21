@@ -9,6 +9,7 @@ All right, the joke's over.
 :revealjs_controls: false
 :revealjs_width: 1920
 :revealjs_height: 1080
+:revealjs_navigationMode: linear
 :imagesdir: images
 :customcss: css/custom.css
 :title-slide-background-image: pexels-joao-fernandes-333885982-13921129.jpg
@@ -25,6 +26,16 @@ since early days of no native threads and, +
 no JIT and slow as hell GC
 
 speaker, coder, architect
+
+== !
+
+image::https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExMmRxa3RwcDBzZWZmeXFyamNzcmtzeXFrNGNzbHIwbHJyaDVhajVrdiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/dP8DxhD9ekk1i/giphy.gif[background]
+
+
+[role="highlight_section_title"]
+== sunset of coding
+
+image::https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExMmRxa3RwcDBzZWZmeXFyamNzcmtzeXFrNGNzbHIwbHJyaDVhajVrdiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/dP8DxhD9ekk1i/giphy.gif[background]
 
 == why this talk?
 
