@@ -5,8 +5,8 @@ ruby.compile = false
 ruby = "3.3"
 node = "22"
 java = "temurin-21"
-"npm:@mermaid-js/mermaid-cli" = "latest"
-"npm:decktape" = "3.16.1"
+"npm:@mermaid-js/mermaid-cli" = "11.17.0"
+"npm:decktape" = { version = "3.16.1", allow_low_downloads = true }
 
 [env]
 BUNDLE_PATH = "vendor/bundle"
